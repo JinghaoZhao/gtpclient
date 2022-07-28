@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/wmnsk/go-gtp/gtpv1"
 	"github.com/wmnsk/go-gtp/gtpv1/ie"
 	"github.com/wmnsk/go-gtp/gtpv1/message"
@@ -71,7 +72,7 @@ func (gs *GTPServer) AddEchoResponseHandler() {
 			return errors.New("got unexpected type of message, should be Echo Response")
 		}
 
-		fmt.Printf("Receive echo response packet from %+v, message=%+v\n", senderAddr, msg)
+		color.Blue("<== Receive echo response packet from %+v, message=%+v\n", senderAddr, msg)
 
 		// do nothing now, leave for future peer monitoring
 		return nil
@@ -123,7 +124,7 @@ func (gs *GTPServer) AddEndMarkerHandler() {
 			return errors.New("got unexpected type of message, should be End Marker")
 		}
 
-		fmt.Printf("Receive end marker packet from %+v, message=%+v\n", senderAddr, msg)
+		color.Blue("<== Receive end marker packet from %+v, message=%+v\n", senderAddr, msg)
 		// do nothing now, leave for future testing
 		return nil
 	})

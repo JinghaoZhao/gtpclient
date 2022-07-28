@@ -10,17 +10,20 @@ import (
 	"github.com/wmnsk/go-gtp/gtpv1"
 	"github.com/wmnsk/go-gtp/gtpv1/message"
 	"net"
+	"strconv"
 	"time"
 )
 
 var (
-	gtpCliIP           = flag.String("cliip", "127.0.0.1", "GTP Client IP")
-	gtpCliPort         = flag.String("cliport", "2152", "GTP Client port")
-	gtpSrvIP           = flag.String("srvip", "127.0.0.1", "GTP Server IP")
-	testTEID           = flag.Uint("teid", 1234, "UE Session TEID")
-	testUETrafficSrcIP = flag.String("uesrcip", "10.0.0.1", "UE Traffic Source IP")
-	testUETrafficDstIP = flag.String("uedstip", "10.0.0.2", "UE Traffic Destination IP")
-	testPayload        = make([]byte, 1400)
+	gtpCliIP             = flag.String("cliip", "127.0.0.1", "GTP Client IP")
+	gtpCliPort           = flag.String("cliport", "2152", "GTP Client port")
+	gtpSrvIP             = flag.String("srvip", "127.0.0.1", "GTP Server IP")
+	testTEID             = flag.Uint("teid", 1234, "UE Session TEID")
+	testUETrafficSrcIP   = flag.String("uesrcip", "10.0.0.1", "UE Traffic Source IP")
+	testUETrafficDstIP   = flag.String("uedstip", "10.0.0.2", "UE Traffic Destination IP")
+	testUETrafficDstPort = flag.String("uedstport", "5678", "UE Traffic Destination Port")
+	testPayload          = make([]byte, 1400)
+	testPktMode          = flag.String("mode", "gtp", "Test traffic type, support 'gtp', 'udp', 'echo', 'server'")
 )
 
 func newTestIPPacket(srcIP, dstIP string, payload []byte) (packet []byte, err error) {
@@ -86,10 +89,7 @@ func (gtpCli *GTPServer) AddTPDUHandler() {
 	})
 }
 
-func main() {
-
-	flag.Parse()
-
+func gtpServe() {
 	testGtpCliConf := GTPConf{
 		SrvAddr: *gtpCliIP,
 		Port:    *gtpCliPort,
@@ -130,5 +130,36 @@ func main() {
 		}
 		time.Sleep(1 * time.Second)
 	}
+}
 
+func udpServe() {
+	port, _ := strconv.Atoi(*testUETrafficDstPort)
+	ueAddr := &net.UDPAddr{
+		Port: port,
+		IP:   net.ParseIP(*testUETrafficDstIP),
+	}
+
+	conn, err := net.DialUDP("udp", nil, ueAddr)
+	if err != nil {
+		fmt.Printf("Some error %v\n", err)
+		return
+	}
+
+	for {
+		color.Green("==> Send UDP packet to %+v \n", ueAddr)
+		conn.Write([]byte("Write an UDP packet for DL testing"))
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func main() {
+
+	flag.Parse()
+
+	switch *testPktMode {
+	case "gtp":
+		gtpServe()
+	case "udp":
+		udpServe()
+	}
 }
