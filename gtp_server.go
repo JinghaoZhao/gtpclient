@@ -43,7 +43,6 @@ func NewGTPServer(conf GTPConf) (gs *GTPServer, err error) {
 	gs.AddEchoRequestHandler()
 	gs.AddEchoResponseHandler()
 	gs.AddEndMarkerHandler()
-	//gs.AddPagingHandler()
 
 	return gs, nil
 }
@@ -56,7 +55,7 @@ func (gs *GTPServer) AddEchoRequestHandler() {
 			return errors.New("got unexpected type of message, should be Echo Request")
 		}
 
-		fmt.Printf("Receive echo request packet from %+v, message=%+v\n", senderAddr, msg)
+		color.Blue("<== Receive echo request packet from %+v, message=%+v\n", senderAddr, msg)
 		// respond with EchoResponse.
 		return c.RespondTo(
 			senderAddr, msg, message.NewEchoResponse(0, ie.NewRecovery(c.Restarts())),
@@ -77,6 +76,14 @@ func (gs *GTPServer) AddEchoResponseHandler() {
 		// do nothing now, leave for future peer monitoring
 		return nil
 	})
+}
+
+func (gs *GTPServer) SendEchoRequest(peeraddr net.Addr) error {
+	if err := gs.srvConn.EchoRequest(peeraddr); err != nil {
+		color.Red("Error:", err)
+		return err
+	}
+	return nil
 }
 
 // NewEndMarker creates a new End Marker GTP packet.

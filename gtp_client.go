@@ -16,14 +16,15 @@ import (
 
 var (
 	gtpCliIP             = flag.String("cliip", "127.0.0.1", "GTP Client IP")
-	gtpCliPort           = flag.String("cliport", "2152", "GTP Client port")
+	gtpCliPort           = flag.Uint("cliport", 2152, "GTP Client port")
 	gtpSrvIP             = flag.String("srvip", "127.0.0.1", "GTP Server IP")
+	gtpSrvPort           = flag.Uint("srvport", 2152, "GTP Server port")
 	testTEID             = flag.Uint("teid", 1234, "UE Session TEID")
 	testUETrafficSrcIP   = flag.String("uesrcip", "10.0.0.1", "UE Traffic Source IP")
 	testUETrafficDstIP   = flag.String("uedstip", "10.0.0.2", "UE Traffic Destination IP")
-	testUETrafficDstPort = flag.String("uedstport", "5678", "UE Traffic Destination Port")
+	testUETrafficDstPort = flag.Uint("uedstport", 5678, "UE Traffic Destination Port")
 	testPayload          = make([]byte, 1400)
-	testPktMode          = flag.String("mode", "gtp", "Test traffic type, support 'gtp', 'udp', 'echo', 'server'")
+	testPktMode          = flag.String("mode", "gtp", "Test traffic type, support 'gtp', 'udp', 'echo', 'recv'")
 )
 
 func newTestIPPacket(srcIP, dstIP string, payload []byte) (packet []byte, err error) {
@@ -92,12 +93,12 @@ func (gtpCli *GTPServer) AddTPDUHandler() {
 func gtpServe() {
 	testGtpCliConf := GTPConf{
 		SrvAddr: *gtpCliIP,
-		Port:    *gtpCliPort,
+		Port:    strconv.Itoa(int(*gtpCliPort)),
 	}
 
 	gtpSrvAddr := &net.UDPAddr{
 		IP:   net.ParseIP(*gtpSrvIP),
-		Port: 2152,
+		Port: int(*gtpSrvPort),
 		Zone: "",
 	}
 
@@ -133,9 +134,8 @@ func gtpServe() {
 }
 
 func udpServe() {
-	port, _ := strconv.Atoi(*testUETrafficDstPort)
 	ueAddr := &net.UDPAddr{
-		Port: port,
+		Port: int(*testUETrafficDstPort),
 		IP:   net.ParseIP(*testUETrafficDstIP),
 	}
 
@@ -152,6 +152,75 @@ func udpServe() {
 	}
 }
 
+func recvModeServe() {
+	testGtpCliConf := GTPConf{
+		SrvAddr: *gtpCliIP,
+		Port:    strconv.Itoa(int(*gtpCliPort)),
+	}
+
+	gtpCli, err := NewGTPServer(testGtpCliConf)
+	if err != nil {
+		fmt.Printf("NewGTPServer Error: %v", err)
+	}
+	gtpCli.AddTPDUHandler()
+
+	go func() {
+		err := gtpCli.Serve()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	defer gtpCli.Stop()
+
+	// Wait for the test client and server setup
+	time.Sleep(1 * time.Second)
+
+	color.Green("GTP Server is running on %+v \n", gtpCli.srvConn.LocalAddr())
+
+	for {
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func echoServe() {
+	testGtpCliConf := GTPConf{
+		SrvAddr: *gtpCliIP,
+		Port:    strconv.Itoa(int(*gtpCliPort)),
+	}
+
+	gtpCli, err := NewGTPServer(testGtpCliConf)
+	if err != nil {
+		fmt.Printf("NewGTPServer Error: %v", err)
+	}
+	gtpCli.AddTPDUHandler()
+
+	go func() {
+		err := gtpCli.Serve()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	defer gtpCli.Stop()
+
+	// Wait for the test client setup
+	time.Sleep(1 * time.Second)
+
+	peerAddr := &net.UDPAddr{
+		IP:   net.ParseIP(*gtpSrvIP),
+		Port: 2152,
+	}
+
+	for {
+		// Send the Echo Request from client to the GTP server
+		color.Green("==> Send Echo Request packet to %+v \n", peerAddr)
+		err := gtpCli.SendEchoRequest(peerAddr)
+		if err != nil {
+			color.Red("echoServe Error: %v", err)
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
 func main() {
 
 	flag.Parse()
@@ -161,5 +230,9 @@ func main() {
 		gtpServe()
 	case "udp":
 		udpServe()
+	case "recv":
+		recvModeServe()
+	case "echo":
+		echoServe()
 	}
 }
